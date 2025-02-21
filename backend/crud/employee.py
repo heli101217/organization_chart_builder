@@ -1,8 +1,18 @@
 from sqlalchemy.orm import Session
 from models.employee import Employee
+from typing import Optional
 
 def get_all_employees(db: Session):
     return db.query(Employee).all()
+
+def update_employee_manager(db: Session, employee_id: int, manager_id: Optional[int]):
+    employee = db.query(Employee).filter(Employee.id == employee_id).first()
+    if not employee:
+        return None
+
+    employee.manager_id = manager_id
+    db.commit()
+    return employee
 
 def seed_data(db: Session):
     if not db.query(Employee).first():  # Only seed if empty

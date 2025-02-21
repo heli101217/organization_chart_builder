@@ -9,3 +9,7 @@ class EmployeeResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class UpdateManagerRequest(BaseModel):
+    id: int
+    manager_id: Optional[int] 
