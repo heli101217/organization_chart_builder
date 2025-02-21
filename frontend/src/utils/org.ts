@@ -1,9 +1,9 @@
-import { Employee, EmployeeNode } from "@/types/org.type";
+import { Employee, OrganizationNode } from "@/types/org.type";
 
-export const buildHierarchy = (employees: Employee[]): EmployeeNode => {
-  const employeeMap: { [key: number]: EmployeeNode } = {};
-  const roots: EmployeeNode = {
-    id: 0,
+export const buildHierarchy = (employees: Employee[]): OrganizationNode => {
+  const employeeMap: { [key: number]: OrganizationNode } = {};
+  const roots: OrganizationNode = {
+    id: -1,
     name: "Company Organization",
     title: "",
     manager_id: null,
@@ -30,12 +30,12 @@ export const buildHierarchy = (employees: Employee[]): EmployeeNode => {
 };
 
 export const getChildIds = (
-  employeeNode: EmployeeNode[],
+  employeeNode: OrganizationNode[],
   id: number
 ): number[] => {
   const result: number[] = [];
 
-  const findChildren = (nodes: EmployeeNode[], parentId: number) => {
+  const findChildren = (nodes: OrganizationNode[], parentId: number) => {
     for (const node of nodes) {
       if (node.manager_id === parentId) {
         result.push(node.id);

@@ -5,6 +5,6 @@ export interface Employee {
   name: string;
 }
 
-export interface EmployeeNode extends Employee {
-  members: EmployeeNode[];
+export interface OrganizationNode extends Employee {
+  members: OrganizationNode[];
 }

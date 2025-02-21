@@ -2,31 +2,35 @@ import { useRef } from "react";
 import { Tree, TreeNode } from "react-organizational-chart";
 import { useDrag, useDrop } from "react-dnd";
 import { toast } from "react-toastify";
+import { useQuery } from "@tanstack/react-query";
 
 import { Card } from "./Card";
-import { Employee, EmployeeNode } from "@/types/org.type";
+import { OrganizationNode } from "@/types/org.type";
 import { buildHierarchy, getChildIds } from "@/utils/org";
 import { DndTypeEnum } from "@/enums/dnd.enum";
+import { Loading } from "./Loading";
+import { getEmployees, putManagerId } from "@/utils/api";
 
 interface OrgNodeProps {
-  employee: EmployeeNode;
-  parent?: EmployeeNode;
+  node: OrganizationNode;
+  isExistParent?: boolean;
+  refetch: () => void;
 }
 
-const OrgNode: React.FC<OrgNodeProps> = ({ employee, parent }) => {
+const OrgNode: React.FC<OrgNodeProps> = ({ node, isExistParent, refetch }) => {
   const ref = useRef<HTMLDivElement>(null);
-  const TreeComponent = parent ? TreeNode : Tree;
+  const TreeComponent = isExistParent ? TreeNode : Tree;
 
   const [{ opacity }, drag] = useDrag(
     () => ({
-      item: { id: employee.id, managerId: employee.manager_id },
+      item: { id: node.id, managerId: node.manager_id },
       type: DndTypeEnum.CARD,
       collect: (monitor) => ({
         opacity: monitor.isDragging() ? 0.5 : 1,
       }),
-      end: (item, monitor) => {
+      end: async (item, monitor) => {
         const dropResult = monitor.getDropResult<{ id: number }>();
-        const childIds = getChildIds(employee.members, item.id);
+        const childIds = getChildIds(node.members, item.id);
         if (!dropResult) {
           toast.warn("The card was dropped into the empty board!");
           return;
@@ -37,33 +41,42 @@ const OrgNode: React.FC<OrgNodeProps> = ({ employee, parent }) => {
           return;
         }
 
-        if (item.managerId === dropResult.id) {
+        if (
+          item.managerId === dropResult.id ||
+          (item.managerId === null && dropResult.id === -1)
+        ) {
           toast.warn("The card can not be dropped into the same parent card!");
           return;
         }
 
         if (item.id !== dropResult.id) {
-          if (dropResult.id === -1)
-            alert(`You moved ${item.id} to ${dropResult.id}!`);
-          else alert(`You moved ${item.id} to ${dropResult.id}!`);
+          try {
+            await putManagerId({
+              id: item.id,
+              managerId: dropResult.id === -1 ? null : dropResult.id,
+            });
+            refetch();
+            toast.success("Manager updated successfully");
+          } catch (error) {
+            toast.error("Failed to update manager");
+          }
         }
       },
-      canDrag: () => employee.id !== -1,
+      canDrag: () => node.id !== -1,
     }),
-    [employee]
+    [node]
   );
 
   const [{ isOver, canDrop }, drop] = useDrop(
     () => ({
       accept: DndTypeEnum.CARD,
-      drop: () => ({ id: employee.id }),
+      drop: () => ({ id: node.id }),
       collect: (monitor) => ({
         isOver: monitor.isOver(),
         canDrop: monitor.canDrop(),
       }),
-      canDrop: () => true,
     }),
-    [employee]
+    [node]
   );
 
   drag(drop(ref));
@@ -80,39 +93,34 @@ const OrgNode: React.FC<OrgNodeProps> = ({ employee, parent }) => {
       label={
         <Card
           ref={ref}
-          name={employee.name}
-          title={employee.title}
+          name={node.name}
+          title={node.title}
           className={`${
             opacity === 0.5 ? "opacity-50" : ""
-          } ${backgroundColor} ${parent ? "" : "w-[100%]"}`}
+          } ${backgroundColor} ${isExistParent ? "" : "w-[100%]"}`}
         />
       }
-      lineWidth={parent ? undefined : "1px"}
-      lineColor={parent ? undefined : "#bbc"}
-      lineBorderRadius={parent ? undefined : "5px"}
+      lineWidth={isExistParent ? undefined : "1px"}
+      lineColor={isExistParent ? undefined : "#bbc"}
+      lineBorderRadius={isExistParent ? undefined : "5px"}
     >
-      {employee.members.map((member) => (
-        <OrgNode employee={member} parent={employee} key={member.id} />
+      {node.members.map((member) => (
+        <OrgNode
+          node={member}
+          isExistParent={true}
+          key={member.id}
+          refetch={refetch}
+        />
       ))}
     </TreeComponent>
   );
 };
 
 export const OrgChart = () => {
-  const employees: Employee[] = [
-    { id: 1, name: "bb", title: "bbb", manager_id: null },
-    { id: 10, name: "bb", title: "bbb", manager_id: null },
-    { id: 2, name: "cc", title: "ccc", manager_id: 1 },
-    { id: 3, name: "dd", title: "ddd", manager_id: 1 },
-    { id: 4, name: "ee", title: "eee", manager_id: 1 },
-    { id: 5, name: "ff", title: "fff", manager_id: 2 },
-    { id: 6, name: "gg", title: "ggg", manager_id: 2 },
-    { id: 7, name: "hh", title: "hhh", manager_id: 3 },
-    { id: 8, name: "ii", title: "iii", manager_id: 3 },
-    { id: 9, name: "jj", title: "jjj", manager_id: 10 },
-  ];
+  const { data, refetch, isLoading, isFetching } = useQuery(getEmployees());
+  if (isFetching || isLoading) return <Loading />;
 
-  const mockOrg: EmployeeNode = buildHierarchy(employees);
+  const node = buildHierarchy(data ? data : []);
 
-  return <OrgNode employee={mockOrg} />;
+  return <OrgNode node={node} refetch={refetch} />;
 };
