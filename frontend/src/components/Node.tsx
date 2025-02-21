@@ -6,8 +6,17 @@ import { DndTypeEnum } from "@/enums/dnd.enum";
 import { useRef, useMemo } from "react";
 import { getChildIds } from "@/utils/org";
 import { toast } from "react-toastify";
+import { putManagerId } from "@/utils/api";
 
-export const Node = ({ o, parent }: { o: Org[]; parent?: number }) => {
+export const Node = ({
+  o,
+  parent,
+  refetch,
+}: {
+  o: Org[];
+  parent?: number;
+  refetch: () => void;
+}) => {
   const ref = useRef<HTMLDivElement>(null);
   let org = o[0];
   if (parent === undefined || parent === null) {
@@ -43,7 +52,7 @@ export const Node = ({ o, parent }: { o: Org[]; parent?: number }) => {
         opacity: monitor.isDragging() ? 0.5 : 1,
         item: monitor.getItem(),
       }),
-      end: (item, monitor) => {
+      end: async (item, monitor) => {
         const childIds = getChildIds(o, item.id);
         const dropResult = monitor.getDropResult<{ id: number }>();
         if (!dropResult) {
@@ -56,7 +65,16 @@ export const Node = ({ o, parent }: { o: Org[]; parent?: number }) => {
         }
 
         if (item.id !== dropResult.id && parent !== dropResult.id) {
-          alert(`You moved ${item.id} to ${dropResult.id}!`);
+          try {
+            await putManagerId({
+              id: item.id,
+              managerId: dropResult.id,
+            });
+            refetch();
+            toast.success("Manager updated successfully");
+          } catch (error) {
+            toast.error("Failed to update manager");
+          }
         }
       },
 
@@ -104,7 +122,7 @@ export const Node = ({ o, parent }: { o: Org[]; parent?: number }) => {
       }
     >
       {org.members.map((member) => (
-        <Node key={member.id} o={[member]} parent={org.id} />
+        <Node key={member.id} o={[member]} parent={org.id} refetch={refetch} />
       ))}
     </TreeComponent>
   );
