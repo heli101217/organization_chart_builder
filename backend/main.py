@@ -3,8 +3,8 @@ from starlette.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from database import engine, SessionLocal, Base
-from crud import get_all_employees, seed_data
-from schemas import EmployeeResponse
+from crud import get_all_employees, update_employee_manager, seed_data
+from schemas import EmployeeResponse, UpdateManagerRequest
 from typing import List
 from doc import TAGS_METADATA
 
@@ -48,5 +48,15 @@ async def root():
 def get_employees(db: Session = Depends(get_db)):
     try:
         return get_all_employees(db)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@app.put("/update_manager", response_model=EmployeeResponse, description="Update an employee's manager", tags=["employees"])
+def update_manager(request: UpdateManagerRequest, db: Session = Depends(get_db)):
+    try:
+        result = update_employee_manager(db, request.id, request.manager_id)
+        if not result:
+            raise HTTPException(status_code=404, detail="Employee not found")
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
